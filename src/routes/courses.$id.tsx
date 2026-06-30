@@ -88,7 +88,7 @@ function CourseDetail() {
             <h3 className="text-sm font-semibold">Instructor</h3>
             <div className="mt-3 flex items-center gap-3">
               <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-primary to-secondary text-primary-foreground font-bold">
-                {course.instructor.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                {course.instructor.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
               </div>
               <div>
                 <div className="font-semibold text-sm">{course.instructor}</div>
