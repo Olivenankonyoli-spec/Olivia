@@ -79,6 +79,10 @@ function CourseDetail() {
               <Play className="h-4 w-4" /> {enrolled ? "Continue learning" : "Enroll & start"}
             </button>
           </div>
+        </div>
+      </div>
+
+
 
       {/* Tabs */}
       <div className="border-b border-border mb-6">
