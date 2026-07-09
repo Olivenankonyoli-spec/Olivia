@@ -65,11 +65,20 @@ function CourseDetail() {
               <span className="inline-flex items-center gap-1"><FileText className="h-3.5 w-3.5" />{course.materials} materials</span>
             </div>
           </div>
-          <button className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 transition">
-            <Play className="h-4 w-4" /> {course.enrolled ? "Continue" : "Enroll now"}
-          </button>
-        </div>
-      </div>
+          <div className="flex flex-col items-stretch gap-2">
+            {enrolled && (
+              <span className="inline-flex items-center justify-center gap-1.5 rounded-full bg-secondary/15 text-secondary px-3 py-1 text-[11px] font-semibold">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                {justEnrolled ? "Enrolled — let's go!" : "Enrolled"}
+              </span>
+            )}
+            <button
+              onClick={handleContinue}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 transition"
+            >
+              <Play className="h-4 w-4" /> {enrolled ? "Continue learning" : "Enroll & start"}
+            </button>
+          </div>
 
       {/* Tabs */}
       <div className="border-b border-border mb-6">
