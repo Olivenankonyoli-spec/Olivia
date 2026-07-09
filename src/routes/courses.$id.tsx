@@ -1,7 +1,7 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { courses, lessons } from "@/lib/mock-data";
-import { BookOpen, FileText, ChevronLeft, Play, ChevronDown, FileType2, Download } from "lucide-react";
+import { BookOpen, FileText, ChevronLeft, Play, ChevronDown, FileType2, Download, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -17,8 +17,27 @@ export const Route = createFileRoute("/courses/$id")({
 
 function CourseDetail() {
   const { course } = Route.useLoaderData();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<"overview" | "lessons" | "materials">("overview");
   const [openLesson, setOpenLesson] = useState<string | null>(lessons[0].id);
+  const [enrolled, setEnrolled] = useState<boolean>(!!course.enrolled);
+  const [justEnrolled, setJustEnrolled] = useState(false);
+
+  const firstLesson = lessons[0];
+  const firstPdfId = firstLesson?.pdfs[0]?.id;
+
+  const handleContinue = () => {
+    if (!enrolled) {
+      setEnrolled(true);
+      setJustEnrolled(true);
+      setTimeout(() => setJustEnrolled(false), 2500);
+    }
+    if (firstPdfId) {
+      navigate({ to: "/reader" });
+    } else {
+      setTab("lessons");
+    }
+  };
 
   return (
     <AppShell
@@ -46,11 +65,24 @@ function CourseDetail() {
               <span className="inline-flex items-center gap-1"><FileText className="h-3.5 w-3.5" />{course.materials} materials</span>
             </div>
           </div>
-          <button className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 transition">
-            <Play className="h-4 w-4" /> {course.enrolled ? "Continue" : "Enroll now"}
-          </button>
+          <div className="flex flex-col items-stretch gap-2">
+            {enrolled && (
+              <span className="inline-flex items-center justify-center gap-1.5 rounded-full bg-secondary/15 text-secondary px-3 py-1 text-[11px] font-semibold">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                {justEnrolled ? "Enrolled — let's go!" : "Enrolled"}
+              </span>
+            )}
+            <button
+              onClick={handleContinue}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 transition"
+            >
+              <Play className="h-4 w-4" /> {enrolled ? "Continue learning" : "Enroll & start"}
+            </button>
+          </div>
         </div>
       </div>
+
+
 
       {/* Tabs */}
       <div className="border-b border-border mb-6">
