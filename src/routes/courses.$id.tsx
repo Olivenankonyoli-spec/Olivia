@@ -33,7 +33,7 @@ function CourseDetail() {
       setTimeout(() => setJustEnrolled(false), 2500);
     }
     if (firstPdfId) {
-      navigate({ to: "/reader", search: { lesson: firstLesson.id, pdf: firstPdfId } });
+      navigate({ to: "/reader" });
     } else {
       setTab("lessons");
     }
