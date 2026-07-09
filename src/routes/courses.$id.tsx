@@ -1,7 +1,7 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { courses, lessons } from "@/lib/mock-data";
-import { BookOpen, FileText, ChevronLeft, Play, ChevronDown, FileType2, Download } from "lucide-react";
+import { BookOpen, FileText, ChevronLeft, Play, ChevronDown, FileType2, Download, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -17,8 +17,27 @@ export const Route = createFileRoute("/courses/$id")({
 
 function CourseDetail() {
   const { course } = Route.useLoaderData();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<"overview" | "lessons" | "materials">("overview");
   const [openLesson, setOpenLesson] = useState<string | null>(lessons[0].id);
+  const [enrolled, setEnrolled] = useState<boolean>(!!course.enrolled);
+  const [justEnrolled, setJustEnrolled] = useState(false);
+
+  const firstLesson = lessons[0];
+  const firstPdfId = firstLesson?.pdfs[0]?.id;
+
+  const handleContinue = () => {
+    if (!enrolled) {
+      setEnrolled(true);
+      setJustEnrolled(true);
+      setTimeout(() => setJustEnrolled(false), 2500);
+    }
+    if (firstPdfId) {
+      navigate({ to: "/reader", search: { lesson: firstLesson.id, pdf: firstPdfId } });
+    } else {
+      setTab("lessons");
+    }
+  };
 
   return (
     <AppShell
