@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Sparkles, Mail, Lock, ArrowRight, GraduationCap, BookOpen, Users } from "lucide-react";
 import { useState } from "react";
-import { setRole } from "@/lib/role";
+import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "Sign in — Apex Tutors" }] }),
@@ -10,12 +10,22 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("alex@apextutors.com");
-  const [password, setPassword] = useState("••••••••");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate({ to: "/dashboard" });
+    setError("");
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (authError) {
+      setError(authError.message);
+    } else {
+      navigate({ to: "/dashboard" });
+    }
   };
 
   return (
@@ -66,11 +76,12 @@ function LoginPage() {
           <p className="mt-2 text-sm text-muted-foreground">Sign in to continue your learning journey.</p>
 
           <form onSubmit={submit} className="mt-8 space-y-4">
+            {error && <div className="text-sm font-medium text-destructive">{error}</div>}
             <Field icon={Mail} label="Email">
-              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" className="field-input" placeholder="you@school.edu" />
+              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" className="field-input" placeholder="you@school.edu" required />
             </Field>
             <Field icon={Lock} label="Password">
-              <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" className="field-input" />
+              <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" className="field-input" required />
             </Field>
             <div className="flex items-center justify-between text-sm">
               <label className="flex items-center gap-2 text-muted-foreground">
@@ -80,7 +91,7 @@ function LoginPage() {
               <a className="font-medium text-primary hover:underline" href="#">Forgot password?</a>
             </div>
 
-            <button type="submit" className="group inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 active:scale-[0.99] transition">
+            <button type="submit" className="group mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 active:scale-[0.99] transition">
               Sign in
               <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
             </button>
@@ -88,22 +99,6 @@ function LoginPage() {
             <div className="text-center text-sm text-muted-foreground pt-2">
               Don't have an account?{" "}
               <Link to="/register" className="font-semibold text-primary hover:underline">Create one</Link>
-            </div>
-
-            <div className="pt-4">
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-center mb-2">Demo — sign in as</div>
-              <div className="grid grid-cols-3 gap-2">
-                {(["admin","instructor","student"] as const).map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => { setRole(r); navigate({ to: "/dashboard" }); }}
-                    className="rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold capitalize hover:border-primary hover:text-primary transition"
-                  >
-                    {r}
-                  </button>
-                ))}
-              </div>
             </div>
           </form>
         </div>

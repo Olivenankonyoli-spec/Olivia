@@ -22,7 +22,7 @@ function LessonsPage() {
   const [items, setItems] = useState<Lesson[]>(seedLessons);
   const [open, setOpen] = useState<string | null>(seedLessons[0]?.id ?? null);
   const [modal, setModal] = useState<ModalState>(null);
-  const isInstructor = role !== "student";
+  const isAdmin = role !== "student";
 
   const closeModal = () => setModal(null);
 
@@ -53,7 +53,7 @@ function LessonsPage() {
     <AppShell
       title="Lessons"
       subtitle="Organize content into clear, sequential lessons."
-      actions={isInstructor ? (
+      actions={isAdmin ? (
         <button
           onClick={() => setModal({ mode: "create" })}
           className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 transition"
@@ -66,7 +66,7 @@ function LessonsPage() {
         {items.length === 0 && (
           <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center">
             <p className="text-sm text-muted-foreground">No lessons yet.</p>
-            {isInstructor && (
+            {isAdmin && (
               <button
                 onClick={() => setModal({ mode: "create" })}
                 className="mt-3 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition"
@@ -87,7 +87,7 @@ function LessonsPage() {
                 </div>
               </button>
               <div className="flex items-center gap-1">
-                {isInstructor && (
+                {isAdmin && (
                   <>
                     <button
                       onClick={() => setModal({ mode: "edit", lesson: l })}

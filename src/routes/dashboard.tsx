@@ -12,13 +12,13 @@ export const Route = createFileRoute("/dashboard")({
 
 function DashboardPage() {
   const [role] = useRole();
+  const isAdmin = role === "admin" || role === "superadmin";
   return (
     <AppShell
-      title={role === "admin" ? "Admin overview" : role === "instructor" ? "Instructor dashboard" : "Welcome back"}
-      subtitle={role === "student" ? "Pick up where you left off." : "Here's what's happening across your workspace."}
+      title={isAdmin ? "Admin overview" : "Welcome back"}
+      subtitle={isAdmin ? "Here's what's happening across your workspace." : "Pick up where you left off."}
     >
-      {role === "admin" && <AdminDash />}
-      {role === "instructor" && <InstructorDash />}
+      {isAdmin && <AdminDash />}
       {role === "student" && <StudentDash />}
     </AppShell>
   );
@@ -124,70 +124,6 @@ function AdminDash() {
   );
 }
 
-function InstructorDash() {
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="My courses" value={4} icon={BookOpen} tone="primary" />
-        <StatCard label="Uploaded PDFs" value={48} icon={FileText} tone="secondary" />
-        <StatCard label="Students enrolled" value={312} icon={Users} tone="accent" />
-        <StatCard label="Lessons published" value={62} icon={ClipboardList} tone="muted" />
-      </div>
-
-      <div className="grid lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2" title="Enrollment trend">
-          <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={growthData}>
-              <defs>
-                <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="oklch(0.72 0.13 190)" stopOpacity={0.4} />
-                  <stop offset="100%" stopColor="oklch(0.72 0.13 190)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.92 0.012 255)" />
-              <XAxis dataKey="month" tickLine={false} axisLine={false} fontSize={12} />
-              <YAxis tickLine={false} axisLine={false} fontSize={12} />
-              <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid var(--border)", background: "var(--card)" }} />
-              <Area dataKey="students" stroke="oklch(0.72 0.13 190)" strokeWidth={2.5} fill="url(#g2)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </Card>
-        <Card title="Quick actions">
-          <div className="space-y-2">
-            <Link to="/materials" className="flex items-center gap-3 rounded-xl border border-border p-3 hover:border-primary hover:bg-primary/5 transition">
-              <Upload className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium">Upload new PDF</span>
-            </Link>
-            <Link to="/lessons" className="flex items-center gap-3 rounded-xl border border-border p-3 hover:border-primary hover:bg-primary/5 transition">
-              <ClipboardList className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium">Create lesson</span>
-            </Link>
-            <Link to="/courses" className="flex items-center gap-3 rounded-xl border border-border p-3 hover:border-primary hover:bg-primary/5 transition">
-              <BookOpen className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium">New course</span>
-            </Link>
-          </div>
-        </Card>
-      </div>
-
-      <Card title="Recent activity">
-        <ul className="divide-y divide-border -mx-2">
-          {recentEnrollments.map((e) => (
-            <li key={e.name + e.course} className="flex items-center gap-3 px-2 py-3">
-              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
-                <Users className="h-4 w-4" />
-              </div>
-              <div className="min-w-0 flex-1 text-sm">
-                <span className="font-semibold">{e.name}</span> enrolled in <span className="font-medium">{e.course}</span>
-              </div>
-              <span className="text-xs text-muted-foreground shrink-0">{e.time}</span>
-            </li>
-          ))}
-        </ul>
-      </Card>
-    </div>
-  );
-}
 
 function StudentDash() {
   const enrolled = courses.filter(c => c.enrolled);

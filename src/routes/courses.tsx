@@ -28,7 +28,7 @@ function CoursesList() {
   const [cat, setCat] = useState("All");
   const [items, setItems] = useState<Course[]>(seedCourses);
   const [modal, setModal] = useState<ModalState>(null);
-  const isInstructor = role !== "student";
+  const isAdmin = role !== "student";
 
   const cats = ["All", ...Array.from(new Set(items.map(c => c.category)))];
   const filtered = items.filter(c =>
@@ -56,7 +56,7 @@ function CoursesList() {
     <AppShell
       title="Courses"
       subtitle="Browse, enroll, and continue learning."
-      actions={isInstructor ? (
+      actions={isAdmin ? (
         <button
           onClick={() => setModal({ mode: "create" })}
           className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 transition"
@@ -95,7 +95,7 @@ function CoursesList() {
               <div className="relative h-36 bg-cover bg-center" style={{ background: c.thumbnail }}>
                 <span className="absolute top-3 left-3 rounded-lg bg-white/90 px-2 py-1 text-[11px] font-semibold text-foreground">{c.category}</span>
                 {c.enrolled && <span className="absolute top-3 right-3 rounded-lg bg-secondary px-2 py-1 text-[11px] font-semibold text-secondary-foreground">Enrolled</span>}
-                {isInstructor && (
+                {isAdmin && (
                   <div className="absolute bottom-3 right-3 flex gap-1.5">
                     <button
                       onClick={() => setModal({ mode: "edit", course: c })}
@@ -120,7 +120,7 @@ function CoursesList() {
                 <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
                   <span className="inline-flex items-center gap-1"><BookOpen className="h-3.5 w-3.5" />{c.lessons} lessons</span>
                   <span className="inline-flex items-center gap-1"><FileText className="h-3.5 w-3.5" />{c.materials} PDFs</span>
-                  {isInstructor && publishedCount !== undefined && (
+                  {isAdmin && publishedCount !== undefined && (
                     <span className="inline-flex items-center gap-1 text-secondary"><Eye className="h-3.5 w-3.5" />{publishedCount} live</span>
                   )}
                 </div>

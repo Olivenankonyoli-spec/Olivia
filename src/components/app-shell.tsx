@@ -8,11 +8,12 @@ import { useState, type ReactNode } from "react";
 import { useRole, getName } from "@/lib/role";
 import type { Role } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 
 type NavItem = { to: string; label: string; icon: typeof LayoutDashboard };
 
 const navByRole: Record<Role, NavItem[]> = {
-  admin: [
+  superadmin: [
     { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { to: "/users", label: "Users", icon: Users },
     { to: "/courses", label: "Courses", icon: BookOpen },
@@ -20,13 +21,12 @@ const navByRole: Record<Role, NavItem[]> = {
     { to: "/materials", label: "Materials", icon: FileText },
     { to: "/settings", label: "Settings", icon: SettingsIcon },
   ],
-  instructor: [
+  admin: [
     { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { to: "/courses", label: "My Courses", icon: BookOpen },
+    { to: "/users", label: "Users", icon: Users },
+    { to: "/courses", label: "Courses", icon: BookOpen },
     { to: "/lessons", label: "Lessons", icon: ClipboardList },
     { to: "/materials", label: "Materials", icon: FileText },
-    { to: "/users", label: "Students", icon: Users },
-    { to: "/profile", label: "Profile", icon: UserIcon },
     { to: "/settings", label: "Settings", icon: SettingsIcon },
   ],
   student: [
@@ -88,25 +88,11 @@ export function AppShell({ children, title, subtitle, actions }: { children: Rea
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 space-y-3 border-t border-sidebar-border bg-sidebar">
-          <div className="rounded-2xl bg-muted p-3">
-            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">View as</div>
-            <div className="grid grid-cols-3 gap-1">
-              {(["admin","instructor","student"] as Role[]).map((r) => (
-                <button
-                  key={r}
-                  onClick={() => setRole(r)}
-                  className={cn(
-                    "rounded-lg px-2 py-1.5 text-[11px] font-semibold capitalize transition",
-                    role === r ? "bg-card text-foreground shadow-soft" : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {r}
-                </button>
-              ))}
-            </div>
-          </div>
           <button
-            onClick={() => navigate({ to: "/login" })}
+            onClick={async () => {
+              await supabase.auth.signOut();
+              navigate({ to: "/login" });
+            }}
             className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-destructive transition"
           >
             <LogOut className="h-4 w-4" />

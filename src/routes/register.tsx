@@ -1,8 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Sparkles, Mail, Lock, User, ArrowRight, GraduationCap, BookOpen } from "lucide-react";
+import { Sparkles, Mail, Lock, User, ArrowRight, GraduationCap } from "lucide-react";
 import { useState } from "react";
-import { setRole, setName } from "@/lib/role";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/register")({
   head: () => ({ meta: [{ title: "Create account — Apex Tutors" }] }),
@@ -11,14 +11,35 @@ export const Route = createFileRoute("/register")({
 
 function RegisterPage() {
   const navigate = useNavigate();
-  const [role, setLocalRole] = useState<"student" | "instructor">("student");
   const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (fullName) setName(fullName);
-    setRole(role);
-    navigate({ to: "/dashboard" });
+    setError("");
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+    
+    const { error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+        }
+      }
+    });
+
+    if (authError) {
+      setError(authError.message);
+    } else {
+      navigate({ to: "/dashboard" });
+    }
   };
 
   return (
@@ -36,27 +57,20 @@ function RegisterPage() {
           <p className="mt-1 text-sm text-muted-foreground">Join thousands of learners and educators on Apex.</p>
 
           <form onSubmit={submit} className="mt-6 space-y-4">
+            {error && <div className="text-sm font-medium text-destructive">{error}</div>}
             <Field icon={User} label="Full name">
               <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="field-input" placeholder="Jane Doe" required />
             </Field>
             <Field icon={Mail} label="Email">
-              <input type="email" className="field-input" placeholder="you@school.edu" required />
+              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" className="field-input" placeholder="you@school.edu" required />
             </Field>
             <div className="grid sm:grid-cols-2 gap-4">
               <Field icon={Lock} label="Password">
-                <input type="password" className="field-input" required />
+                <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" className="field-input" required />
               </Field>
               <Field icon={Lock} label="Confirm password">
-                <input type="password" className="field-input" required />
+                <input value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} type="password" className="field-input" required />
               </Field>
-            </div>
-
-            <div>
-              <span className="text-sm font-medium">I'm joining as</span>
-              <div className="mt-2 grid grid-cols-2 gap-3">
-                <RoleCard active={role === "student"} onClick={() => setLocalRole("student")} icon={GraduationCap} title="Student" desc="Enroll and learn" />
-                <RoleCard active={role === "instructor"} onClick={() => setLocalRole("instructor")} icon={BookOpen} title="Instructor" desc="Teach and publish" />
-              </div>
             </div>
 
             <button type="submit" className="group mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 active:scale-[0.99] transition">
@@ -89,22 +103,5 @@ function Field({ icon: Icon, label, children }: { icon: typeof Mail; label: stri
         {children}
       </div>
     </label>
-  );
-}
-
-function RoleCard({ active, onClick, icon: Icon, title, desc }: { active: boolean; onClick: () => void; icon: typeof User; title: string; desc: string }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "rounded-2xl border p-4 text-left transition",
-        active ? "border-primary bg-primary/5 ring-4 ring-primary/10" : "border-border hover:border-primary/40"
-      )}
-    >
-      <Icon className={cn("h-5 w-5 mb-2", active ? "text-primary" : "text-muted-foreground")} />
-      <div className="text-sm font-semibold">{title}</div>
-      <div className="text-xs text-muted-foreground">{desc}</div>
-    </button>
   );
 }
