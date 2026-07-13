@@ -10,6 +10,7 @@ export interface Course {
   thumbnail: string;
   description: string;
   enrolled?: boolean;
+  lessonsList?: CourseLessonDraft[];
 }
 
 export interface Lesson {
