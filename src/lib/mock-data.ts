@@ -10,6 +10,7 @@ export interface Course {
   thumbnail: string;
   description: string;
   enrolled?: boolean;
+  lessonsList?: CourseLessonDraft[];
 }
 
 export interface Lesson {
@@ -17,6 +18,15 @@ export interface Lesson {
   title: string;
   description: string;
   pdfs: { id: string; title: string; size: string }[];
+  published?: boolean;
+}
+
+export interface CourseLessonDraft {
+  id: string;
+  title: string;
+  description: string;
+  published: boolean;
+  materials: { id: string; title: string; size: string }[];
 }
 
 export interface Material {

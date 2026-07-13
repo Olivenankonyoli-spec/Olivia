@@ -1,7 +1,7 @@
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
-import { courses as seedCourses, type Course } from "@/lib/mock-data";
-import { BookOpen, FileText, Search, Plus, X, ImagePlus, Trash2, Upload, FileType2 } from "lucide-react";
+import { courses as seedCourses, type Course, type CourseLessonDraft } from "@/lib/mock-data";
+import { BookOpen, FileText, Search, Plus, X, ImagePlus, Trash2, Upload, FileType2, Pencil, Eye, EyeOff, AlertTriangle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useRole } from "@/lib/role";
 
@@ -16,15 +16,19 @@ function CoursesLayout() {
   return <CoursesList />;
 }
 
-type DraftMaterial = { id: string; title: string; size: string };
-type DraftLesson = { id: string; title: string; description: string; materials: DraftMaterial[] };
+type ModalState =
+  | { mode: "create" }
+  | { mode: "edit"; course: Course }
+  | { mode: "delete"; course: Course }
+  | null;
 
 function CoursesList() {
   const [role] = useRole();
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("All");
   const [items, setItems] = useState<Course[]>(seedCourses);
-  const [showCreate, setShowCreate] = useState(false);
+  const [modal, setModal] = useState<ModalState>(null);
+  const isInstructor = role !== "student";
 
   const cats = ["All", ...Array.from(new Set(items.map(c => c.category)))];
   const filtered = items.filter(c =>
@@ -32,18 +36,29 @@ function CoursesList() {
     (q === "" || c.title.toLowerCase().includes(q.toLowerCase()) || c.instructor.toLowerCase().includes(q.toLowerCase()))
   );
 
-  const handleCreate = (course: Course) => {
-    setItems((prev) => [course, ...prev]);
-    setShowCreate(false);
+  const closeModal = () => setModal(null);
+
+  const handleSave = (course: Course, mode: "create" | "edit") => {
+    setItems((prev) =>
+      mode === "create"
+        ? [course, ...prev]
+        : prev.map((c) => (c.id === course.id ? course : c))
+    );
+    closeModal();
+  };
+
+  const handleDelete = (id: string) => {
+    setItems((prev) => prev.filter((c) => c.id !== id));
+    closeModal();
   };
 
   return (
     <AppShell
       title="Courses"
       subtitle="Browse, enroll, and continue learning."
-      actions={role !== "student" ? (
+      actions={isInstructor ? (
         <button
-          onClick={() => setShowCreate(true)}
+          onClick={() => setModal({ mode: "create" })}
           className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 transition"
         >
           <Plus className="h-4 w-4" />New course
@@ -73,32 +88,56 @@ function CoursesList() {
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {filtered.map((c) => (
-          <div key={c.id} className="group rounded-2xl border border-border bg-card overflow-hidden shadow-soft hover:shadow-lift hover:-translate-y-0.5 transition">
-            <div className="relative h-36 bg-cover bg-center" style={{ background: c.thumbnail }}>
-              <span className="absolute top-3 left-3 rounded-lg bg-white/90 px-2 py-1 text-[11px] font-semibold text-foreground">{c.category}</span>
-              {c.enrolled && <span className="absolute top-3 right-3 rounded-lg bg-secondary px-2 py-1 text-[11px] font-semibold text-secondary-foreground">Enrolled</span>}
-            </div>
-            <div className="p-5">
-              <h3 className="font-semibold leading-snug group-hover:text-primary transition">{c.title}</h3>
-              <p className="mt-1 text-xs text-muted-foreground">{c.instructor}</p>
-              <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1"><BookOpen className="h-3.5 w-3.5" />{c.lessons} lessons</span>
-                <span className="inline-flex items-center gap-1"><FileText className="h-3.5 w-3.5" />{c.materials} PDFs</span>
-              </div>
-              <div className="mt-4 flex gap-2">
-                <Link to="/courses/$id" params={{ id: c.id }} className="flex-1 inline-flex items-center justify-center rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition">
-                  Open course
-                </Link>
-                {!c.enrolled && (
-                  <button className="inline-flex items-center justify-center rounded-xl border border-border px-3 py-2 text-xs font-semibold hover:border-primary hover:text-primary transition">
-                    Enroll
-                  </button>
+        {filtered.map((c) => {
+          const publishedCount = c.lessonsList?.filter((l) => l.published).length;
+          return (
+            <div key={c.id} className="group rounded-2xl border border-border bg-card overflow-hidden shadow-soft hover:shadow-lift hover:-translate-y-0.5 transition">
+              <div className="relative h-36 bg-cover bg-center" style={{ background: c.thumbnail }}>
+                <span className="absolute top-3 left-3 rounded-lg bg-white/90 px-2 py-1 text-[11px] font-semibold text-foreground">{c.category}</span>
+                {c.enrolled && <span className="absolute top-3 right-3 rounded-lg bg-secondary px-2 py-1 text-[11px] font-semibold text-secondary-foreground">Enrolled</span>}
+                {isInstructor && (
+                  <div className="absolute bottom-3 right-3 flex gap-1.5">
+                    <button
+                      onClick={() => setModal({ mode: "edit", course: c })}
+                      aria-label={`Edit ${c.title}`}
+                      className="grid h-8 w-8 place-items-center rounded-lg bg-card/95 text-foreground hover:bg-card shadow-soft transition"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setModal({ mode: "delete", course: c })}
+                      aria-label={`Delete ${c.title}`}
+                      className="grid h-8 w-8 place-items-center rounded-lg bg-card/95 text-destructive hover:bg-card shadow-soft transition"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 )}
               </div>
+              <div className="p-5">
+                <h3 className="font-semibold leading-snug group-hover:text-primary transition">{c.title}</h3>
+                <p className="mt-1 text-xs text-muted-foreground">{c.instructor}</p>
+                <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1"><BookOpen className="h-3.5 w-3.5" />{c.lessons} lessons</span>
+                  <span className="inline-flex items-center gap-1"><FileText className="h-3.5 w-3.5" />{c.materials} PDFs</span>
+                  {isInstructor && publishedCount !== undefined && (
+                    <span className="inline-flex items-center gap-1 text-secondary"><Eye className="h-3.5 w-3.5" />{publishedCount} live</span>
+                  )}
+                </div>
+                <div className="mt-4 flex gap-2">
+                  <Link to="/courses/$id" params={{ id: c.id }} className="flex-1 inline-flex items-center justify-center rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition">
+                    Open course
+                  </Link>
+                  {!c.enrolled && (
+                    <button className="inline-flex items-center justify-center rounded-xl border border-border px-3 py-2 text-xs font-semibold hover:border-primary hover:text-primary transition">
+                      Enroll
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {filtered.length === 0 && (
@@ -109,8 +148,20 @@ function CoursesList() {
         </div>
       )}
 
-      {showCreate && (
-        <NewCourseModal onClose={() => setShowCreate(false)} onCreate={handleCreate} />
+      {(modal?.mode === "create" || modal?.mode === "edit") && (
+        <CourseFormModal
+          key={modal.mode === "edit" ? modal.course.id : "new"}
+          initial={modal.mode === "edit" ? modal.course : undefined}
+          onClose={closeModal}
+          onSave={(c) => handleSave(c, modal.mode as "create" | "edit")}
+        />
+      )}
+      {modal?.mode === "delete" && (
+        <DeleteCourseModal
+          course={modal.course}
+          onClose={closeModal}
+          onConfirm={() => handleDelete(modal.course.id)}
+        />
       )}
     </AppShell>
   );
@@ -149,18 +200,29 @@ function formatSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function NewCourseModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c: Course) => void }) {
-  const [title, setTitle] = useState("");
-  const [instructor, setInstructor] = useState("");
-  const [category, setCategory] = useState(CATEGORIES[0]);
-  const [description, setDescription] = useState("");
-  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
-  const [lessons, setLessons] = useState<DraftLesson[]>([
-    { id: `l_${Date.now()}`, title: "", description: "", materials: [] },
-  ]);
+function extractImageUrl(thumbnail: string): string | null {
+  const m = thumbnail.match(/^url\((.+?)\)/);
+  return m ? m[1] : null;
+}
+
+function CourseFormModal({ initial, onClose, onSave }: { initial?: Course; onClose: () => void; onSave: (c: Course) => void }) {
+  const isEdit = !!initial;
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [instructor, setInstructor] = useState(initial?.instructor ?? "");
+  const [category, setCategory] = useState(initial?.category && CATEGORIES.includes(initial.category) ? initial.category : (initial?.category ?? CATEGORIES[0]));
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(initial ? extractImageUrl(initial.thumbnail) : null);
+  const [thumbnailGradient] = useState<string>(initial && !extractImageUrl(initial.thumbnail) ? initial.thumbnail : FALLBACK_THUMB);
+  const [lessons, setLessons] = useState<CourseLessonDraft[]>(
+    initial?.lessonsList && initial.lessonsList.length > 0
+      ? initial.lessonsList
+      : [{ id: `l_${Date.now()}`, title: "", description: "", published: false, materials: [] }]
+  );
   const [error, setError] = useState<string | null>(null);
   const imgInputRef = useRef<HTMLInputElement>(null);
-  const headingId = "new-course-title";
+  const headingId = "course-form-title";
+
+  const categoryOptions = Array.from(new Set([...CATEGORIES, ...(initial?.category ? [initial.category] : [])]));
 
   const onImage = (file: File | undefined) => {
     if (!file) return;
@@ -171,14 +233,14 @@ function NewCourseModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
   };
 
   const addLesson = () =>
-    setLessons((p) => [...p, { id: `l_${Date.now()}_${p.length}`, title: "", description: "", materials: [] }]);
+    setLessons((p) => [...p, { id: `l_${Date.now()}_${p.length}`, title: "", description: "", published: false, materials: [] }]);
   const removeLesson = (id: string) => setLessons((p) => p.filter((l) => l.id !== id));
-  const updateLesson = (id: string, patch: Partial<DraftLesson>) =>
+  const updateLesson = (id: string, patch: Partial<CourseLessonDraft>) =>
     setLessons((p) => p.map((l) => (l.id === id ? { ...l, ...patch } : l)));
 
   const addMaterials = (lessonId: string, files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const mats: DraftMaterial[] = Array.from(files).map((f, i) => ({
+    const mats = Array.from(files).map((f, i) => ({
       id: `m_${Date.now()}_${i}`,
       title: f.name,
       size: formatSize(f.size),
@@ -194,11 +256,9 @@ function NewCourseModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
     if (!instructor.trim()) return setError("Instructor name is required.");
     const validLessons = lessons.filter((l) => l.title.trim());
     const totalMaterials = validLessons.reduce((sum, l) => sum + l.materials.length, 0);
-    const thumbnail = thumbnailUrl
-      ? `url(${thumbnailUrl}) center/cover`
-      : FALLBACK_THUMB;
-    onCreate({
-      id: `c_${Date.now()}`,
+    const thumbnail = thumbnailUrl ? `url(${thumbnailUrl}) center/cover` : thumbnailGradient;
+    onSave({
+      id: initial?.id ?? `c_${Date.now()}`,
       title: title.trim(),
       instructor: instructor.trim(),
       category,
@@ -206,6 +266,8 @@ function NewCourseModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
       materials: totalMaterials,
       thumbnail,
       description: description.trim() || "New course.",
+      enrolled: initial?.enrolled,
+      lessonsList: validLessons,
     });
   };
 
@@ -213,26 +275,25 @@ function NewCourseModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
     <ModalShell onClose={onClose} labelledBy={headingId}>
       <form onSubmit={submit}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-border sticky top-0 bg-card z-10">
-          <h2 id={headingId} className="text-base font-semibold">Create new course</h2>
+          <h2 id={headingId} className="text-base font-semibold">{isEdit ? "Edit course" : "Create new course"}</h2>
           <button type="button" onClick={onClose} aria-label="Close" className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted transition">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         <div className="px-5 py-4 space-y-5">
-          {/* Cover image */}
           <div>
             <label className="block text-xs font-semibold text-muted-foreground mb-1.5">Cover image</label>
             <div
               className="relative h-40 rounded-xl border border-dashed border-border overflow-hidden bg-muted/40 grid place-items-center cursor-pointer hover:border-primary transition"
-              style={thumbnailUrl ? { background: `url(${thumbnailUrl}) center/cover` } : undefined}
+              style={thumbnailUrl ? { background: `url(${thumbnailUrl}) center/cover` } : { background: thumbnailGradient }}
               onClick={() => imgInputRef.current?.click()}
             >
               {!thumbnailUrl && (
-                <div className="text-center text-muted-foreground">
+                <div className="text-center text-white drop-shadow">
                   <ImagePlus className="h-6 w-6 mx-auto mb-1" />
-                  <p className="text-xs font-medium">Click to upload course image</p>
-                  <p className="text-[11px]">PNG, JPG · recommended 1200×600</p>
+                  <p className="text-xs font-medium">Click to upload cover image</p>
+                  <p className="text-[11px] opacity-90">PNG, JPG · recommended 1200×600</p>
                 </div>
               )}
               {thumbnailUrl && (
@@ -255,7 +316,6 @@ function NewCourseModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
             </div>
           </div>
 
-          {/* Basics */}
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-muted-foreground mb-1.5">Course title</label>
@@ -282,7 +342,7 @@ function NewCourseModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
               >
-                {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+                {categoryOptions.map((c) => <option key={c}>{c}</option>)}
               </select>
             </div>
             <div className="sm:col-span-2">
@@ -297,7 +357,6 @@ function NewCourseModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
             </div>
           </div>
 
-          {/* Lessons */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="block text-xs font-semibold text-muted-foreground">Lessons</label>
@@ -326,7 +385,7 @@ function NewCourseModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
 
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-border bg-muted/30 rounded-b-2xl sticky bottom-0">
           <button type="button" onClick={onClose} className="rounded-xl px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted transition">Cancel</button>
-          <button type="submit" className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 transition">Create course</button>
+          <button type="submit" className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 transition">{isEdit ? "Save changes" : "Create course"}</button>
         </div>
       </form>
     </ModalShell>
@@ -337,10 +396,10 @@ function LessonDraftCard({
   index, lesson, canRemove, onRemove, onChange, onAddFiles, onRemoveMaterial,
 }: {
   index: number;
-  lesson: DraftLesson;
+  lesson: CourseLessonDraft;
   canRemove: boolean;
   onRemove: () => void;
-  onChange: (patch: Partial<DraftLesson>) => void;
+  onChange: (patch: Partial<CourseLessonDraft>) => void;
   onAddFiles: (files: FileList | null) => void;
   onRemoveMaterial: (matId: string) => void;
 }) {
@@ -376,51 +435,101 @@ function LessonDraftCard({
         )}
       </div>
 
-      <div className="mt-3 pl-11">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Materials</span>
+      <div className="mt-3 pl-11 space-y-3">
+        {/* Publish status */}
+        <div className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2">
+          <div className="flex items-center gap-2 min-w-0">
+            {lesson.published ? <Eye className="h-4 w-4 text-secondary" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
+            <div className="min-w-0">
+              <div className="text-xs font-semibold">{lesson.published ? "Published" : "Draft"}</div>
+              <div className="text-[11px] text-muted-foreground truncate">
+                {lesson.published ? "Visible to enrolled students." : "Only instructors can see this lesson."}
+              </div>
+            </div>
+          </div>
           <button
             type="button"
-            onClick={() => fileRef.current?.click()}
-            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/10 transition"
+            role="switch"
+            aria-checked={lesson.published}
+            onClick={() => onChange({ published: !lesson.published })}
+            className={`relative h-5 w-9 shrink-0 rounded-full transition ${lesson.published ? "bg-secondary" : "bg-muted"}`}
           >
-            <Upload className="h-3.5 w-3.5" /> Upload PDFs
+            <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${lesson.published ? "left-[18px]" : "left-0.5"}`} />
           </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="application/pdf"
-            multiple
-            className="hidden"
-            onChange={(e) => { onAddFiles(e.target.files); if (fileRef.current) fileRef.current.value = ""; }}
-          />
         </div>
-        {lesson.materials.length === 0 ? (
-          <p className="text-xs italic text-muted-foreground">No materials uploaded yet.</p>
-        ) : (
-          <ul className="space-y-1.5">
-            {lesson.materials.map((m) => (
-              <li key={m.id} className="flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5">
-                <div className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-destructive/10 text-destructive">
-                  <FileType2 className="h-3.5 w-3.5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-xs font-medium">{m.title}</div>
-                  <div className="text-[11px] text-muted-foreground">{m.size}</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onRemoveMaterial(m.id)}
-                  aria-label="Remove material"
-                  className="grid h-6 w-6 place-items-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+
+        {/* Materials */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Materials</span>
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/10 transition"
+            >
+              <Upload className="h-3.5 w-3.5" /> Upload PDFs
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/pdf"
+              multiple
+              className="hidden"
+              onChange={(e) => { onAddFiles(e.target.files); if (fileRef.current) fileRef.current.value = ""; }}
+            />
+          </div>
+          {lesson.materials.length === 0 ? (
+            <p className="text-xs italic text-muted-foreground">No materials uploaded yet.</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {lesson.materials.map((m) => (
+                <li key={m.id} className="flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5">
+                  <div className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-destructive/10 text-destructive">
+                    <FileType2 className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-xs font-medium">{m.title}</div>
+                    <div className="text-[11px] text-muted-foreground">{m.size}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onRemoveMaterial(m.id)}
+                    aria-label="Remove material"
+                    className="grid h-6 w-6 place-items-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
+  );
+}
+
+function DeleteCourseModal({ course, onClose, onConfirm }: { course: Course; onClose: () => void; onConfirm: () => void }) {
+  const headingId = "delete-course-title";
+  return (
+    <ModalShell onClose={onClose} labelledBy={headingId}>
+      <div className="px-5 py-5">
+        <div className="flex items-start gap-4">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-destructive/10 text-destructive">
+            <AlertTriangle className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <h2 id={headingId} className="text-base font-semibold">Delete course</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Are you sure you want to delete <span className="font-medium text-foreground">{course.title}</span>? All associated lessons and materials will be removed. This action cannot be undone.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-border bg-muted/30 rounded-b-2xl">
+        <button type="button" onClick={onClose} className="rounded-xl px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted transition">Cancel</button>
+        <button type="button" onClick={onConfirm} className="rounded-xl bg-destructive px-4 py-2 text-sm font-semibold text-destructive-foreground shadow-soft hover:bg-destructive/90 transition">Delete course</button>
+      </div>
+    </ModalShell>
   );
 }
