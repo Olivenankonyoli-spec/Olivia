@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
-import { lessons as seedLessons, type Lesson } from "@/lib/mock-data";
 import { Plus, Pencil, Trash2, ChevronDown, FileType2, Download, X, AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/lib/role";
+import { useLessons, useCreateLesson, useUpdateLesson, useDeleteLesson, useCourses } from "@/lib/queries";
+import type { LessonWithMaterials, CourseWithStats } from "@/types/database";
 
 export const Route = createFileRoute("/lessons")({
   head: () => ({ meta: [{ title: "Lessons — Apex Tutors" }] }),
@@ -13,41 +14,24 @@ export const Route = createFileRoute("/lessons")({
 
 type ModalState =
   | { mode: "create" }
-  | { mode: "edit"; lesson: Lesson }
-  | { mode: "delete"; lesson: Lesson }
+  | { mode: "edit"; lesson: LessonWithMaterials }
+  | { mode: "delete"; lesson: LessonWithMaterials }
   | null;
+
+function formatBytes(bytes: number | null) {
+  if (!bytes) return "Unknown size";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
 
 function LessonsPage() {
   const [role] = useRole();
-  const [items, setItems] = useState<Lesson[]>(seedLessons);
-  const [open, setOpen] = useState<string | null>(seedLessons[0]?.id ?? null);
-  const [modal, setModal] = useState<ModalState>(null);
   const isAdmin = role !== "student";
+  const { data: items, isLoading } = useLessons();
+  const [open, setOpen] = useState<string | null>(null);
+  const [modal, setModal] = useState<ModalState>(null);
 
   const closeModal = () => setModal(null);
-
-  const handleCreate = (data: { title: string; description: string }) => {
-    const newLesson: Lesson = {
-      id: `l_${Date.now()}`,
-      title: data.title,
-      description: data.description,
-      pdfs: [],
-    };
-    setItems((prev) => [...prev, newLesson]);
-    setOpen(newLesson.id);
-    closeModal();
-  };
-
-  const handleEdit = (id: string, data: { title: string; description: string }) => {
-    setItems((prev) => prev.map((l) => (l.id === id ? { ...l, ...data } : l)));
-    closeModal();
-  };
-
-  const handleDelete = (id: string) => {
-    setItems((prev) => prev.filter((l) => l.id !== id));
-    setOpen((cur) => (cur === id ? null : cur));
-    closeModal();
-  };
 
   return (
     <AppShell
@@ -63,7 +47,9 @@ function LessonsPage() {
       ) : undefined}
     >
       <div className="space-y-2">
-        {items.length === 0 && (
+        {isLoading ? (
+          <div className="py-20 text-center text-muted-foreground">Loading lessons...</div>
+        ) : (!items || items.length === 0) ? (
           <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center">
             <p className="text-sm text-muted-foreground">No lessons yet.</p>
             {isAdmin && (
@@ -75,90 +61,80 @@ function LessonsPage() {
               </button>
             )}
           </div>
-        )}
-        {items.map((l, i) => (
-          <div key={l.id} className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden">
-            <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 px-5 py-4">
-              <button onClick={() => setOpen(open === l.id ? null : l.id)} className="contents">
-                <div className="grid h-9 w-9 place-items-center rounded-xl bg-primary/10 text-primary text-sm font-bold">{i + 1}</div>
-                <div className="min-w-0 text-left">
-                  <div className="font-semibold truncate">{l.title}</div>
-                  <div className="text-xs text-muted-foreground truncate">{l.pdfs.length} attached PDFs · Foundations of Calculus</div>
-                </div>
-              </button>
-              <div className="flex items-center gap-1">
-                {isAdmin && (
-                  <>
-                    <button
-                      onClick={() => setModal({ mode: "edit", lesson: l })}
-                      aria-label={`Edit ${l.title}`}
-                      className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => setModal({ mode: "delete", lesson: l })}
-                      aria-label={`Delete ${l.title}`}
-                      className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </>
-                )}
-                <button onClick={() => setOpen(open === l.id ? null : l.id)} className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted transition">
-                  <ChevronDown className={cn("h-4 w-4 transition", open === l.id && "rotate-180")} />
+        ) : (
+          items.map((l, i) => (
+            <div key={l.id} className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden">
+              <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 px-5 py-4">
+                <button onClick={() => setOpen(open === l.id ? null : l.id)} className="contents">
+                  <div className="grid h-9 w-9 place-items-center rounded-xl bg-primary/10 text-primary text-sm font-bold">{i + 1}</div>
+                  <div className="min-w-0 text-left">
+                    <div className="font-semibold truncate">{l.title}</div>
+                    <div className="text-xs text-muted-foreground truncate">{l.materials?.length || 0} attached PDFs</div>
+                  </div>
                 </button>
+                <div className="flex items-center gap-1">
+                  {isAdmin && (
+                    <>
+                      <button
+                        onClick={() => setModal({ mode: "edit", lesson: l })}
+                        aria-label={`Edit ${l.title}`}
+                        className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => setModal({ mode: "delete", lesson: l })}
+                        aria-label={`Delete ${l.title}`}
+                        className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </>
+                  )}
+                  <button onClick={() => setOpen(open === l.id ? null : l.id)} className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted transition">
+                    <ChevronDown className={cn("h-4 w-4 transition", open === l.id && "rotate-180")} />
+                  </button>
+                </div>
               </div>
+              {open === l.id && (
+                <div className="px-5 pb-5 pt-2 border-t border-border bg-muted/30">
+                  <p className="text-sm text-muted-foreground mb-3">{l.description}</p>
+                  {l.materials && l.materials.length > 0 ? (
+                    <ul className="space-y-2">
+                      {l.materials.map((p) => (
+                        <li key={p.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
+                          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-destructive/10 text-destructive">
+                            <FileType2 className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-medium">{p.title}</div>
+                            <div className="text-xs text-muted-foreground">{formatBytes(p.size_bytes)}</div>
+                          </div>
+                          <Download className="h-4 w-4 text-muted-foreground" />
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-xs text-muted-foreground italic">No PDFs attached yet.</p>
+                  )}
+                </div>
+              )}
             </div>
-            {open === l.id && (
-              <div className="px-5 pb-5 pt-2 border-t border-border bg-muted/30">
-                <p className="text-sm text-muted-foreground mb-3">{l.description}</p>
-                {l.pdfs.length > 0 ? (
-                  <ul className="space-y-2">
-                    {l.pdfs.map((p) => (
-                      <li key={p.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
-                        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-destructive/10 text-destructive">
-                          <FileType2 className="h-4 w-4" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-medium">{p.title}</div>
-                          <div className="text-xs text-muted-foreground">{p.size}</div>
-                        </div>
-                        <Download className="h-4 w-4 text-muted-foreground" />
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-xs text-muted-foreground italic">No PDFs attached yet.</p>
-                )}
-              </div>
-            )}
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
-      {modal?.mode === "create" && (
+      {(modal?.mode === "create" || modal?.mode === "edit") && (
         <LessonFormModal
-          title="Create lesson"
-          submitLabel="Create lesson"
+          key={modal.mode === "edit" ? modal.lesson.id : "new"}
+          initial={modal.mode === "edit" ? modal.lesson : undefined}
           onClose={closeModal}
-          onSubmit={handleCreate}
-        />
-      )}
-      {modal?.mode === "edit" && (
-        <LessonFormModal
-          title="Edit lesson"
-          submitLabel="Save changes"
-          initial={{ title: modal.lesson.title, description: modal.lesson.description }}
-          onClose={closeModal}
-          onSubmit={(data) => handleEdit(modal.lesson.id, data)}
         />
       )}
       {modal?.mode === "delete" && (
         <DeleteLessonModal
           lesson={modal.lesson}
           onClose={closeModal}
-          onConfirm={() => handleDelete(modal.lesson.id)}
         />
       )}
     </AppShell>
@@ -192,98 +168,129 @@ function ModalShell({ children, onClose, labelledBy }: { children: React.ReactNo
   );
 }
 
-function LessonFormModal({
-  title,
-  submitLabel,
-  initial,
-  onClose,
-  onSubmit,
-}: {
-  title: string;
-  submitLabel: string;
-  initial?: { title: string; description: string };
-  onClose: () => void;
-  onSubmit: (data: { title: string; description: string }) => void;
-}) {
-  const [form, setForm] = useState({
-    title: initial?.title ?? "",
-    description: initial?.description ?? "",
-  });
+function LessonFormModal({ initial, onClose }: { initial?: any; onClose: () => void }) {
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [courseId, setCourseId] = useState(initial?.course_id ?? "");
   const [error, setError] = useState<string | null>(null);
-  const headingId = "lesson-form-title";
+  
+  const { data: courses } = useCourses();
+  const createMutation = useCreateLesson();
+  const updateMutation = useUpdateLesson();
+  const isPending = createMutation.isPending || updateMutation.isPending;
+
+  // Auto-select first course if creating and none selected
+  useEffect(() => {
+    if (!initial && !courseId && courses && courses.length > 0) {
+      setCourseId(courses[0].id);
+    }
+  }, [courses, courseId, initial]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.title.trim()) {
-      setError("Title is required.");
+    if (!title.trim() || !courseId) {
+      setError("Title and Course are required.");
       return;
     }
-    onSubmit({ title: form.title.trim(), description: form.description.trim() });
+    
+    if (initial) {
+      updateMutation.mutate(
+        { id: initial.id, title: title.trim(), description: description.trim(), course_id: courseId },
+        { onSuccess: () => onClose() }
+      );
+    } else {
+      createMutation.mutate(
+        { title: title.trim(), description: description.trim(), course_id: courseId, sort_order: 1, published: true },
+        { onSuccess: () => onClose() }
+      );
+    }
   };
 
   return (
-    <ModalShell onClose={onClose} labelledBy={headingId}>
+    <ModalShell onClose={onClose} labelledBy="lesson-form-title">
       <form onSubmit={submit}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h2 id={headingId} className="text-base font-semibold">{title}</h2>
+          <h2 id="lesson-form-title" className="text-base font-semibold">{initial ? "Edit lesson" : "Create lesson"}</h2>
           <button type="button" onClick={onClose} aria-label="Close" className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted transition">
             <X className="h-4 w-4" />
           </button>
         </div>
         <div className="px-5 py-4 space-y-4">
           <div>
-            <label htmlFor="lesson-title" className="block text-xs font-semibold text-muted-foreground mb-1.5">Title</label>
+            <label className="block text-xs font-semibold text-muted-foreground mb-1.5">Course</label>
+            <select
+              value={courseId}
+              onChange={(e) => setCourseId(e.target.value)}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
+              required
+            >
+              <option value="" disabled>Select a course</option>
+              {courses?.map((c) => (
+                <option key={c.id} value={c.id}>{c.title}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-muted-foreground mb-1.5">Title</label>
             <input
-              id="lesson-title"
               autoFocus
-              value={form.title}
-              onChange={(e) => { setForm({ ...form, title: e.target.value }); setError(null); }}
+              value={title}
+              onChange={(e) => { setTitle(e.target.value); setError(null); }}
               placeholder="e.g. Integration by Parts"
               className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
+              required
             />
           </div>
           <div>
-            <label htmlFor="lesson-desc" className="block text-xs font-semibold text-muted-foreground mb-1.5">Description</label>
+            <label className="block text-xs font-semibold text-muted-foreground mb-1.5">Description</label>
             <textarea
-              id="lesson-desc"
               rows={4}
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               placeholder="Short summary of what this lesson covers."
               className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition resize-none"
+              required
             />
           </div>
           {error && <p className="text-xs font-medium text-destructive">{error}</p>}
         </div>
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-border bg-muted/30 rounded-b-2xl">
           <button type="button" onClick={onClose} className="rounded-xl px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted transition">Cancel</button>
-          <button type="submit" className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 transition">{submitLabel}</button>
+          <button type="submit" disabled={isPending} className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft hover:bg-primary/90 transition disabled:opacity-50">
+            {isPending ? "Saving..." : initial ? "Save changes" : "Create lesson"}
+          </button>
         </div>
       </form>
     </ModalShell>
   );
 }
 
-function DeleteLessonModal({ lesson, onClose, onConfirm }: { lesson: Lesson; onClose: () => void; onConfirm: () => void }) {
-  const headingId = "delete-lesson-title";
+function DeleteLessonModal({ lesson, onClose }: { lesson: any; onClose: () => void }) {
+  const deleteMutation = useDeleteLesson();
   return (
-    <ModalShell onClose={onClose} labelledBy={headingId}>
+    <ModalShell onClose={onClose} labelledBy="delete-lesson-title">
       <div className="px-5 py-5">
         <div className="flex items-start gap-4">
           <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-destructive/10 text-destructive">
             <AlertTriangle className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <h2 id={headingId} className="text-base font-semibold">Delete lesson</h2>
+            <h2 id="delete-lesson-title" className="text-base font-semibold">Delete lesson</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Are you sure you want to delete <span className="font-medium text-foreground">{lesson.title}</span>? This will remove {lesson.pdfs.length} attached PDF{lesson.pdfs.length === 1 ? "" : "s"} from this lesson. This action cannot be undone.
+              Are you sure you want to delete <span className="font-medium text-foreground">{lesson.title}</span>? This will remove {lesson.materials?.length || 0} attached PDF{(lesson.materials?.length || 0) === 1 ? "" : "s"} from this lesson. This action cannot be undone.
             </p>
           </div>
         </div>
       </div>
       <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-border bg-muted/30 rounded-b-2xl">
         <button type="button" onClick={onClose} className="rounded-xl px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted transition">Cancel</button>
-        <button type="button" onClick={onConfirm} className="rounded-xl bg-destructive px-4 py-2 text-sm font-semibold text-destructive-foreground shadow-soft hover:bg-destructive/90 transition">Delete lesson</button>
+        <button 
+          disabled={deleteMutation.isPending}
+          onClick={() => deleteMutation.mutate(lesson.id, { onSuccess: () => onClose() })} 
+          className="rounded-xl bg-destructive px-4 py-2 text-sm font-semibold text-destructive-foreground shadow-soft hover:bg-destructive/90 transition disabled:opacity-50"
+        >
+          {deleteMutation.isPending ? "Deleting..." : "Delete lesson"}
+        </button>
       </div>
     </ModalShell>
   );

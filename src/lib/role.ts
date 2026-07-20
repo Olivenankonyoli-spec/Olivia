@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Role } from "./mock-data";
+import type { Role } from "@/types/database";
 import { supabase } from "./supabase";
 
 const KEY = "apex.role";

@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useRole, getName } from "@/lib/role";
-import type { Role } from "@/lib/mock-data";
+import type { Role } from "@/types/database";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 

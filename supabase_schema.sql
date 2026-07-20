@@ -110,3 +110,36 @@ ALTER TABLE public.enrollments ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view their own enrollments" ON public.enrollments FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can enroll themselves" ON public.enrollments FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can unenroll themselves" ON public.enrollments FOR DELETE USING (auth.uid() = user_id);
+
+-- Announcements table
+CREATE TABLE public.announcements (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can view announcements" ON public.announcements FOR SELECT USING (true);
+CREATE POLICY "Only admins can manage announcements" ON public.announcements FOR ALL 
+    USING (
+        EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role IN ('admin', 'superadmin'))
+    );
+
+-- Growth Data table
+CREATE TABLE public.growth_data (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    month TEXT NOT NULL,
+    students INTEGER NOT NULL,
+    courses INTEGER NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.growth_data ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Only admins can view growth data" ON public.growth_data FOR SELECT USING (
+    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role IN ('admin', 'superadmin'))
+);
+CREATE POLICY "Only admins can manage growth data" ON public.growth_data FOR ALL 
+    USING (
+        EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role IN ('admin', 'superadmin'))
+    );
